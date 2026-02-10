@@ -78,7 +78,7 @@ async fn main_() -> Result<()> {
     // check if there's an update for filen-relay-deployer
     if !args.ignore_updates {
         let response = reqwest::Client::new()
-            .get("https://api.github.com/repos/JupiterPi/filen-relay/releases/latest")
+            .get("https://api.github.com/repos/FilenCloudDienste/filen-relay/releases/latest")
             .header(reqwest::header::USER_AGENT, "filen-relay-deployer")
             .send()
             .await?;
@@ -248,7 +248,7 @@ async fn deploy_to_scaleway(filen_relay_version: &str, client: Client, args: Arg
         .create_container(&serde_json::json!({
             "namespace_id": namespace.id,
             "name": container_name,
-            "registry_image": format!("ghcr.io/jupiterpi/filen-relay:{}", filen_relay_version),
+            "registry_image": format!("ghcr.io/FilenCloudDienste/filen-relay:{}", filen_relay_version),
             "min_scale": 0,
             "max_scale": 1,
             "port": 80,
