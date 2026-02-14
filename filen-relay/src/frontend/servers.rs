@@ -37,81 +37,12 @@ pub(crate) fn Servers() -> Element {
     });
     let servers = &*servers;
 
-    let is_admin = AUTH.read().as_ref().is_some_and(|auth| auth.is_admin);
-
     match servers() {
         Some(servers) if !servers.is_empty() => {
             rsx! {
                 div { class: "flex flex-wrap gap-4",
                     for server in servers {
-                        div { class: "border p-4 inline-flex flex-col w-64 rounded-lg",
-                            h2 { class: "font-bold text-lg", "{server.spec.name}" }
-                            p {
-                                "ID: "
-                                span { class: "font-mono", "#{server.spec.id.short()}" }
-                            }
-                            p { "Type: {server.spec.server_type}" }
-                            if is_admin {
-                                p {
-                                    span { class: "font-mono", "{server.spec.filen_email}" }
-                                }
-                            }
-                            p { "Root: {server.spec.root}" }
-                            if server.spec.read_only {
-                                p { "Mode: Read-Only" }
-                            } else {
-                                p { "Mode: Read-Write" }
-                            }
-                            if server.spec.password.is_some() {
-                                p { "Password protection" }
-                            } else {
-                                p { "No password protection" }
-                            }
-                            match server.status.clone() {
-                                ServerStatus::Starting => rsx! {
-                                    p { class: "text-gray-500", "Starting..." }
-                                },
-                                ServerStatus::Running { .. } => rsx! {
-                                    p { class: "text-green-500", "Online" }
-                                },
-                                ServerStatus::Error => rsx! {
-                                    p { class: "text-red-500", "Error!" }
-                                },
-                            }
-                            p {
-                                "Connect: "
-                                a {
-                                    class: "font-mono text-blue-400",
-                                    href: "/s/{server.spec.id.short()}/",
-                                    target: "_blank",
-                                    "/s/{server.spec.id.short()}/"
-                                }
-                            }
-                            Link {
-                                to: Route::LogsPage {
-                                    logs_id: server.logs_id.clone(),
-                                },
-                                class: "flex _button mt-2",
-                                "View Logs"
-                            }
-                            button {
-                                class: "_button mt-2",
-                                onclick: move |_| {
-                                    let server = server.clone();
-                                    async move {
-                                        match crate::api::remove_server(server.spec.id.clone()).await {
-                                            Ok(_) => {
-                                                tracing::info!("Server removed successfully");
-                                            }
-                                            Err(err) => {
-                                                tracing::error!("Failed to remove server: {}", err);
-                                            }
-                                        };
-                                    }
-                                },
-                                "Remove Server"
-                            }
-                        }
+                        ServerCard { server: server.clone() }
                     }
                 }
             }
@@ -124,6 +55,102 @@ pub(crate) fn Servers() -> Element {
         None => rsx! {
             div { class: "text-gray-500", "Loading servers..." }
         },
+    }
+}
+
+#[component]
+fn ServerCard(server: ServerState) -> Element {
+    let is_admin = AUTH.read().as_ref().is_some_and(|auth| auth.is_admin);
+
+    let mut show_password = use_signal(|| false);
+
+    rsx! {
+        div { class: "border p-4 inline-flex flex-col w-64 rounded-lg",
+            h2 { class: "font-bold text-lg", "{server.spec.name}" }
+            p {
+                "ID: "
+                span { class: "font-mono", "#{server.spec.id.short()}" }
+            }
+            p { "Type: {server.spec.server_type}" }
+            if is_admin {
+                p {
+                    span { class: "font-mono", "{server.spec.filen_email}" }
+                }
+            }
+            p { "Root: {server.spec.root}" }
+            if server.spec.read_only {
+                p { "Mode: Read-Only" }
+            } else {
+                p { "Mode: Read-Write" }
+            }
+            if server.spec.password.is_some() {
+                p {
+                    "Password "
+                    a {
+                        class: "text-blue-400 cursor-pointer",
+                        r#type: "button",
+                        onclick: move |_| {
+                            let val = !*show_password.read();
+                            show_password.set(val);
+                        },
+                        if *show_password.read() {
+                            "(Hide)"
+                        } else {
+                            "(Show)"
+                        }
+                    }
+                    if *show_password.read() {
+                        p { class: "font-mono", "{server.spec.password.clone().unwrap_or_default()}" }
+                    }
+                }
+            } else {
+                p { "No password protection" }
+            }
+            match server.status.clone() {
+                ServerStatus::Starting => rsx! {
+                    p { class: "text-gray-500", "Starting..." }
+                },
+                ServerStatus::Running { .. } => rsx! {
+                    p { class: "text-green-500", "Online" }
+                },
+                ServerStatus::Error => rsx! {
+                    p { class: "text-red-500", "Error!" }
+                },
+            }
+            p {
+                "Connect: "
+                a {
+                    class: "font-mono text-blue-400",
+                    href: "/s/{server.spec.id.short()}/",
+                    target: "_blank",
+                    "/s/{server.spec.id.short()}/"
+                }
+            }
+            Link {
+                to: Route::LogsPage {
+                    logs_id: server.logs_id.clone(),
+                },
+                class: "flex _button mt-2",
+                "View Logs"
+            }
+            button {
+                class: "_button mt-2",
+                onclick: move |_| {
+                    let server = server.clone();
+                    async move {
+                        match crate::api::remove_server(server.spec.id.clone()).await {
+                            Ok(_) => {
+                                tracing::info!("Server removed successfully");
+                            }
+                            Err(err) => {
+                                tracing::error!("Failed to remove server: {}", err);
+                            }
+                        };
+                    }
+                },
+                "Remove Server"
+            }
+        }
     }
 }
 

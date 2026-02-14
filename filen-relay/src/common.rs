@@ -3,7 +3,7 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct ServerSpec {
     pub id: ServerId,
     pub name: String,
@@ -52,7 +52,7 @@ impl rusqlite::ToSql for ServerId {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, EnumIter)]
+#[derive(Clone, Serialize, Deserialize, EnumIter, PartialEq)]
 pub(crate) enum ServerType {
     Http,
     Webdav,
@@ -86,14 +86,14 @@ impl From<&str> for ServerType {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct ServerState {
     pub spec: ServerSpec,
     pub logs_id: String,
     pub status: ServerStatus,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) enum ServerStatus {
     Starting,
     Running { port: u16 },
