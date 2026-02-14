@@ -69,23 +69,23 @@ pub(crate) fn Servers() -> Element {
                             }
                             match server.status.clone() {
                                 ServerStatus::Starting => rsx! {
-                                    p { class: "text-gray-500", "Status: Starting..." }
+                                    p { class: "text-gray-500", "Starting..." }
                                 },
                                 ServerStatus::Running { .. } => rsx! {
                                     p { class: "text-green-500", "Online" }
-                                    p {
-                                        "Connect: "
-                                        a {
-                                            class: "font-mono text-blue-400",
-                                            href: "/s/{server.spec.id.short()}/",
-                                            target: "_blank",
-                                            "/s/{server.spec.id.short()}/"
-                                        }
-                                    }
                                 },
                                 ServerStatus::Error => rsx! {
-                                    p { class: "text-red-500", "Status: Error" }
+                                    p { class: "text-red-500", "Error!" }
                                 },
+                            }
+                            p {
+                                "Connect: "
+                                a {
+                                    class: "font-mono text-blue-400",
+                                    href: "/s/{server.spec.id.short()}/",
+                                    target: "_blank",
+                                    "/s/{server.spec.id.short()}/"
+                                }
                             }
                             Link {
                                 to: Route::LogsPage {
@@ -214,16 +214,33 @@ pub(crate) fn CreateServerForm() -> Element {
                             onchange: move |e| read_only.set(e.value() == "true"),
                         }
                     }
-
                 }
                 div {
                     label { "Password:" }
-                    input {
-                        class: "mt-1 _input",
-                        r#type: "password",
-                        placeholder: "Password",
-                        value: "{password_str}",
-                        oninput: move |e| password.set(Some(e.value().clone())),
+                    div { class: "flex gap-2 mt-1",
+                        input {
+                            class: "_input flex-1 font-mono",
+                            r#type: "input",
+                            placeholder: "(none)",
+                            value: "{password_str}",
+                            oninput: move |e| {
+                                password.set(if e.value().is_empty() { None } else { Some(e.value().clone()) })
+                            },
+                        }
+                        if password.read().is_none() {
+                            button {
+                                class: "_button",
+                                r#type: "button",
+                                onclick: move |_| {
+                                    password
+                                        .set(Some(uuid::Uuid::new_v4().as_simple().to_string()[..16].to_string()))
+                                },
+                                "Generate"
+                            }
+                        }
+                    }
+                    if password.read().is_none() {
+                        p { class: "text-gray-500 text-sm text-end mt-0.5", "No password protection" }
                     }
                 }
             }
