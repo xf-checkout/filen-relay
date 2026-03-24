@@ -5,6 +5,7 @@ use std::str::FromStr;
 use axum_core::body::Body;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
+use dioxus::fullstack::Redirect;
 use dioxus::prelude::*;
 use dioxus::server::axum;
 use dioxus::server::axum::{
@@ -73,19 +74,16 @@ pub(crate) fn serve(args: Args) {
                     .unwrap(),
             );
 
-            let (server_manager_1, server_manager_2, server_manager_3) = (
-                server_manager.clone(),
-                server_manager.clone(),
-                server_manager.clone(),
-            );
+            let (server_manager_1, server_manager_2) =
+                (server_manager.clone(), server_manager.clone());
             let router = dioxus::server::router(crate::frontend::App);
             let router = auth::initialize_session_manager(router);
             Ok(router
                 .route(
                     "/{server_type}/{id}",
                     axum::routing::any(
-                        |Path((server_type, id)): Path<(ServerType, String)>, req: Request| async move {
-                            handle_rclone_request(server_manager_1, &server_type, id, req).await
+                        |Path((_server_type, _id)): Path<(ServerType, String)>, req: Request| async move {
+                            Redirect::permanent(&format!("{}/", req.uri()))
                         },
                     ),
                 )
@@ -93,7 +91,7 @@ pub(crate) fn serve(args: Args) {
                     "/{server_type}/{id}/",
                     axum::routing::any(
                         |Path((server_type, id)): Path<(ServerType, String)>, req: Request| async move {
-                            handle_rclone_request(server_manager_2, &server_type, id, req).await
+                            handle_rclone_request(server_manager_1, &server_type, id, req).await
                         },
                     ),
                 )
@@ -102,7 +100,7 @@ pub(crate) fn serve(args: Args) {
                     axum::routing::any(
                         |Path((server_type, id, _rest)): Path<(ServerType, String, String)>,
                          req: Request| async move {
-                            handle_rclone_request(server_manager_3, &server_type, id, req).await
+                            handle_rclone_request(server_manager_2, &server_type, id, req).await
                         },
                     ),
                 )
