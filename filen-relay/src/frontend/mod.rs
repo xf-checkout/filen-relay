@@ -96,6 +96,11 @@ fn NavbarLayout() -> Element {
                     "Logout"
                 }
             }
+            a {
+                href: "https://github.com/FilenCloudDienste/filen-relay",
+                target: "_blank",
+                img { class: "size-8", src: asset!("/assets/github-icon.svg") }
+            }
         }
         div { class: "p-4",
             if AUTH.read().is_some() {
