@@ -39,6 +39,12 @@ pub(crate) struct Args {
         help = "Directory to store the database file. By default, the data will be stored in the admin's Filen drive."
     )]
     db_dir: Option<String>,
+    #[arg(
+        long,
+        env = "FILEN_RELAY_SKIP_UPDATE_CHECKER",
+        help = "Skip checking for updates"
+    )]
+    skip_update_checker: bool,
 }
 
 #[cfg(feature = "server")]

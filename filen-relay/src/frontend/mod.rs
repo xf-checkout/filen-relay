@@ -1,5 +1,6 @@
 mod manage_allowed_users;
 mod shares;
+mod update_checker;
 use std::ops::Deref;
 
 use dioxus::{
@@ -17,7 +18,9 @@ use crate::{
         input::Input,
         label::Label,
     },
-    frontend::{manage_allowed_users::ManageAllowedUsers, shares::Shares},
+    frontend::{
+        manage_allowed_users::ManageAllowedUsers, shares::Shares, update_checker::UpdateChecker,
+    },
 };
 
 struct Authentication {
@@ -161,7 +164,10 @@ fn NavbarLayout() -> Element {
             }
         }
         div { class: "p-4",
-            if AUTH.read().is_some() {
+            if let Some(auth) = AUTH.read().deref() {
+                if auth.is_admin {
+                    UpdateChecker {}
+                }
                 Outlet::<Route> {}
             } else {
                 Login {}

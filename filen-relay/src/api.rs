@@ -1,3 +1,5 @@
+use std::sync::{Mutex, OnceLock};
+
 use crate::common::{Share, ShareId};
 use dioxus::fullstack::response::Response;
 use dioxus::prelude::*;
@@ -218,4 +220,82 @@ pub(crate) async fn clear_allowed_users() -> Result<(), anyhow::Error> {
     DB.clear_allowed_users()
         .await
         .map_err(|e| anyhow::anyhow!("Failed to clear allowed users: {}", e))
+}
+
+pub(crate) static SKIP_UPDATE_CHECKER: OnceLock<bool> = OnceLock::new();
+
+#[derive(Clone)]
+struct LastUpdateCheck {
+    timestamp: std::time::Instant,
+    latest_version: String,
+}
+static LAST_UPDATE_CHECK: Mutex<Option<LastUpdateCheck>> = Mutex::new(None);
+
+#[cfg(feature = "server")]
+async fn check_for_updates_cached() -> Result<String, anyhow::Error> {
+    let cached_last_check = LAST_UPDATE_CHECK
+        .lock()
+        .unwrap()
+        .clone()
+        .and_then(|last_check| {
+            if last_check.timestamp.elapsed() < std::time::Duration::from_mins(10) {
+                Some(last_check.clone())
+            } else {
+                None
+            }
+        });
+    if let Some(last_check) = cached_last_check {
+        Ok(last_check.latest_version)
+    } else {
+        let latest_version = get_latest_version().await?;
+        *LAST_UPDATE_CHECK.lock().unwrap() = Some(LastUpdateCheck {
+            timestamp: std::time::Instant::now(),
+            latest_version: latest_version.clone(),
+        });
+        Ok(latest_version)
+    }
+}
+
+#[cfg(feature = "server")]
+async fn get_latest_version() -> Result<String, anyhow::Error> {
+    use dioxus::fullstack::reqwest;
+
+    let response = reqwest::Client::new()
+        .get("https://api.github.com/repos/FilenCloudDienste/filen-relay/releases/latest")
+        .header(reqwest::header::USER_AGENT, "filen-relay-deployer")
+        .send()
+        .await?;
+    let latest_version = response
+        .json::<serde_json::Value>()
+        .await?
+        .get("tag_name")
+        .and_then(|t| t.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| anyhow::anyhow!("Failed to get tag_name from GitHub API response"))?;
+    Ok(latest_version)
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) struct AvailableUpdate {
+    pub current_version: String,
+    pub latest_version: String,
+}
+
+#[get("/api/checkForUpdates")]
+pub(crate) async fn check_for_updates() -> Result<Option<AvailableUpdate>, anyhow::Error> {
+    if SKIP_UPDATE_CHECKER.get().cloned().unwrap_or_default() {
+        return Ok(None);
+    }
+    let latest_version = check_for_updates_cached()
+        .await
+        .context("Failed to check for updates")?;
+    let current_version = env!("CARGO_PKG_VERSION").to_string();
+    if latest_version != current_version {
+        Ok(Some(AvailableUpdate {
+            current_version,
+            latest_version,
+        }))
+    } else {
+        Ok(None)
+    }
 }

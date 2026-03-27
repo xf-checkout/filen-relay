@@ -14,6 +14,7 @@ use dioxus::server::axum::{
 };
 use http::Uri;
 
+use crate::api::SKIP_UPDATE_CHECKER;
 use crate::backend::rclone_auth_proxy::handle_rclone_remote_config_request;
 use crate::backend::server_manager::ServerManager;
 use crate::common::ServerType;
@@ -64,6 +65,7 @@ pub(crate) fn serve(args: Args) {
                 }.expect("Failed to initialize database");
             ADMIN_EMAIL.set(admin_email).unwrap();
             DB.init(db);
+            SKIP_UPDATE_CHECKER.set(args.skip_update_checker).unwrap();
 
             let self_port = std::env::var("PORT")
                 .map(|port| port.parse::<u16>().unwrap_or(8080))
