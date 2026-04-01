@@ -22,6 +22,8 @@ struct RcloneServerProcess {
     pub port: u16,
 }
 
+pub(crate) static RCLONE_BASE_URL_TO_SUBSTITUTE: &str = "/RCLONE_BASE_URL_TO_SUBSTITUTE"; // must start with a slash
+
 impl ServerManager {
     pub(crate) async fn start_servers(self_port: u16) -> Result<ServerManager> {
         let config_dir = std::env::current_dir()
@@ -67,7 +69,8 @@ impl ServerManager {
                     &format!(":{}", port),
                     "--auth-proxy",
                     script_file.path().to_str().unwrap(),
-                    "--verbose",
+                    "--baseurl",
+                    RCLONE_BASE_URL_TO_SUBSTITUTE,
                 ])
                 .await
                 .context("Failed to start Rclone server")?;
