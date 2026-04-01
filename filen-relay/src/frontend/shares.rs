@@ -68,14 +68,15 @@ pub(crate) fn Shares() -> Element {
                 }
             }
             div { class: "flex flex-col gap-2",
-                for share in shares {
+                CreateShareCard { on_create: move |_| fetch_shares() }
+                for share in shares.iter().rev() {
                     ShareCard {
+                        key: "{share.id}",
                         share: share.clone(),
                         open_as: open_as.cloned().unwrap().unwrap_or_default(),
                         on_remove: move |_| fetch_shares(),
                     }
                 }
-                CreateShareCard { on_create: move |_| fetch_shares() }
             }
         },
         None => rsx! {
