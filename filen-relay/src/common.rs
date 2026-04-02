@@ -61,8 +61,10 @@ pub(crate) enum ServerType {
 	#[serde(rename = "s")]
 	#[strum(to_string = "HTTP")]
 	Http,
+	#[serde(rename = "webdav")]
 	#[strum(to_string = "WebDAV")]
 	Webdav,
+	#[serde(rename = "s3")]
 	#[strum(to_string = "S3")]
 	S3,
 	//Ftp, Sftp,
