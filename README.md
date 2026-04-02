@@ -3,7 +3,11 @@
 > [!IMPORTANT]
 > This project is in active development. **Expect bugs.**
 
-Filen Relay provides a convenient way to serve your Filen Drive via HTTP/WebDAV/S3. Access the web interface to create shares mapping to multiple users, and manage basic permissions.
+Filen Relay provides a convenient way to serve your Filen Drive via HTTP/WebDAV/S3.
+- **Create shares** of **different directories**, which can be **read-only** and **password-protected**.
+- Access shares via Web, **WebDAV** and **S3**.
+- **Self-host** or deploy it to the cloud with an easy-to-use **deploy script** at **low cost**.
+- **Admin interface** to manage which accounts can use your instance.
 
 ## Installation
 
@@ -17,7 +21,24 @@ Download the latest Filen Relay Deployer from the [release page](https://github.
 docker run -e FILEN_RELAY_ADMIN_EMAIL='your-filen-account@email.com' -e FILEN_RELAY_DB_DIR='/usr/app/data' -v /some/host/path:/usr/app/data -p 80:80 ghcr.io/filenclouddienste/filen-relay:latest
 ```
 
-Configuration options (choose one):
+Two ways to configure (choose one):
 - Set options (or environment variables) `--admin-email` (`FILEN_RELAY_ADMIN_EMAIL`) and `--db-dir` (`FILEN_RELAY_DB_DIR`) to create a normal deployment.
 - Set `--admin-email` (`FILEN_RELAY_ADMIN_EMAIL`), `--admin-password` (`FILEN_RELAY_ADMIN_PASSWORD`) and `--admin-2fa-code` (`FILEN_RELAY_ADMIN_2FA_CODE`) if needed to create a deployment where data is stored in the admin's Filen drive. This is useful when the deployments needs to be stateless.
     - You can also instead set `--admin-auth-config` (`FILEN_RELAY_ADMIN_AUTH_CONFIG`) to provide an auth config (containing email, password and API key), which was previously exported from the [Filen CLI](https://github.com/FilenCloudDienste/filen-cli-releases).
+
+#### Example Docker Compose file
+Make sure to replace the placeholders `<version>`, `<admin email>` and `<host port>` with your actual values:
+```yaml
+# compose.yaml
+services:
+  filen-relay:
+    image: ghcr.io/filenclouddienste/filen-relay:<version>
+    restart: always
+    environment:
+      FILEN_RELAY_ADMIN_EMAIL: "<admin email>"
+      FILEN_RELAY_DB_DIR: "/data"
+    ports:
+      - "<host port>:80"
+    volumes:
+      - ./filen-relay-data:/data
+```

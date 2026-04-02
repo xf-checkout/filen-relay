@@ -197,11 +197,18 @@ The Organization ID can be found on the same page.",
 		"https://console.scaleway.com/containers/namespaces/{}/{}/containers/{}",
 		region, namespace.id, container.id
 	);
-	cliclack::log::success(format!(
-        "Deployed Filen Relay to Scaleway!\nView it in the Scaleway Console: {}\nFilen Relay soon available at: https://{}",
-        console_url,
-        container.domain_name
-    ))?;
+	cliclack::log::success("Deployed Filen Relay to Scaleway!")?;
+	cliclack::log::remark(format!("View it in the Scaleway Console:\n{}", console_url))?;
+	cliclack::log::remark(format!(
+		"Your Filen Relay will soon be available at:\nhttps://{}",
+		container.domain_name
+	))?;
+	cliclack::note(
+		"Install updates using the Deployer",
+		"When you want to install an update, download the latest Filen Relay Deployer
+from https://github.com/FilenCloudDienste/filen-relay/releases/latest
+and execute it to update your existing container.",
+	)?;
 
 	Ok(())
 }
