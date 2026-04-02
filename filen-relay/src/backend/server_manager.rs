@@ -75,9 +75,10 @@ impl ServerManager {
 
 			// spawn rclone process
 			let port_str = format!(":{}", port);
+			let server_type_str = format!("{}", server_type).to_lowercase();
 			let mut args = vec![
 				"serve",
-				server_type.to_str(),
+				&server_type_str,
 				"--addr",
 				&port_str,
 				"--auth-proxy",
@@ -95,7 +96,7 @@ impl ServerManager {
 			let (mut process, _) =
 				RcloneInstallation::initialize_unauthenticated(&RcloneInstallationConfig {
 					rclone_binary_dir: config_dir.clone(),
-					config_dir: config_dir.join(format!("server_{}", server_type.to_str())),
+					config_dir: config_dir.join(format!("server_{}", server_type_str)),
 				})
 				.await
 				.context("Failed to initialize Rclone installation")?

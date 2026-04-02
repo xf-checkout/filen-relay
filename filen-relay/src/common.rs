@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
-use strum_macros::EnumIter;
+use strum_macros::{Display, EnumIter};
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct Share {
@@ -55,11 +55,15 @@ impl rusqlite::ToSql for ShareId {
 	}
 }
 
-#[derive(EnumIter, PartialEq, Clone, Default)]
+#[derive(Serialize, Deserialize, EnumIter, PartialEq, Clone, Default, Display)]
 pub(crate) enum ServerType {
 	#[default]
+	#[serde(rename = "s")]
+	#[strum(to_string = "HTTP")]
 	Http,
+	#[strum(to_string = "WebDAV")]
 	Webdav,
+	#[strum(to_string = "S3")]
 	S3,
 	//Ftp, Sftp,
 	// since the rclone --max-header-size option doesn't work for ftp/sftp rclone servers, we disabled those for now,
@@ -70,63 +74,4 @@ pub(crate) enum ServerType {
 	// https://github.com/FilenCloudDienste/filen-relay/blob/80f6b08cd80998145d0c33565bb7b8c4639beb12/filen-relay/src/backend/rclone_auth_proxy.rs
 	// but check again if the header size is even also an issue for ftp/sftp, because it's not HTTP-based?
 	// todo: make FTP/SFTP work again
-}
-
-impl ServerType {
-	pub(crate) fn to_url_segment(&self) -> &'static str {
-		match self {
-			ServerType::Http => "s",
-			ServerType::Webdav => "webdav",
-			ServerType::S3 => "s3",
-		}
-	}
-
-	pub(crate) fn to_str(&self) -> &'static str {
-		match self {
-			ServerType::Http => "http",
-			ServerType::Webdav => "webdav",
-			ServerType::S3 => "s3",
-		}
-	}
-}
-
-impl Serialize for ServerType {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: serde::Serializer,
-	{
-		serializer.serialize_str(self.to_url_segment())
-	}
-}
-
-impl<'de> Deserialize<'de> for ServerType {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		let s = String::deserialize(deserializer)?;
-		match s.as_str() {
-			"s" => Ok(ServerType::Http),
-			"webdav" => Ok(ServerType::Webdav),
-			"s3" => Ok(ServerType::S3),
-			_ => Err(serde::de::Error::custom(format!(
-				"Unknown server type: {}",
-				s
-			))),
-		}
-	}
-}
-
-impl Display for ServerType {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(
-			f,
-			"{}",
-			match self {
-				ServerType::Http => "Web",
-				ServerType::Webdav => "WebDAV",
-				ServerType::S3 => "S3",
-			}
-		)
-	}
 }

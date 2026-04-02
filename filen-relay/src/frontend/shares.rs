@@ -144,7 +144,9 @@ fn OpenAsDialog(share: Share) -> Element {
 		Some(Ok(url)) => Some(format!(
 			"{}/{}/{}",
 			url,
-			open_as().unwrap_or_default().to_url_segment(),
+			serde_json::to_string(&open_as().unwrap_or_default())
+				.unwrap()
+				.trim_matches('"'),
 			share.id.short()
 		)),
 		Some(Err(e)) => {
