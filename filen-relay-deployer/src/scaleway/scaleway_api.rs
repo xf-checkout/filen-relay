@@ -1,4 +1,5 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
 
 pub(crate) struct ScalewayApi {
@@ -31,8 +32,14 @@ pub struct ContainersNamespacesListResponseItem {
 }
 
 #[derive(Deserialize)]
+pub struct ContainersListResponse {
+	pub containers: Vec<ContainersListResponseItem>,
+}
+
+#[derive(Deserialize, PartialEq, Eq, Clone)]
 pub struct ContainersListResponseItem {
 	pub id: String,
+	pub name: String,
 	pub domain_name: String,
 }
 
@@ -57,43 +64,54 @@ impl ScalewayApi {
 		}
 	}
 
-	async fn get<T: for<'a> Deserialize<'a>>(&self, endpoint: &str) -> Result<T> {
-		let url = format!(
-			"https://api.scaleway.com/{}",
-			endpoint.trim_start_matches('/')
-		);
-		log::debug!("Scaleway API: GET {}", url);
-		let response = self.client.get(url).send().await?;
-		let text = response.text().await?;
-		log::debug!("Response from {}: {}", endpoint, text);
-		let result = serde_json::from_str::<T>(&text)?;
-		Ok(result)
-	}
-
-	async fn post<T: for<'a> Deserialize<'a>, B: Serialize>(
+	async fn request<T: for<'a> Deserialize<'a>, B: Serialize>(
 		&self,
+		method: Method,
 		endpoint: &str,
-		body: &B,
+		body: Option<&B>,
 	) -> Result<T> {
 		let url = format!(
 			"https://api.scaleway.com/{}",
 			endpoint.trim_start_matches('/')
 		);
-		log::debug!("Scaleway API: POST {}", url);
-		log::debug!("Request body: {}", serde_json::to_string(body)?);
-		let response = self.client.post(url).json(body).send().await?;
-		let text = response.text().await?;
+		log::debug!("Scaleway API: {} {}", method, url);
+		if let Some(body) = body {
+			log::debug!(
+				"Request body: {}",
+				serde_json::to_string(body)
+					.as_deref()
+					.unwrap_or("(request body could not be serialized)")
+			);
+		}
+		let response = self.client.request(method, url);
+		let response = if let Some(body) = body {
+			response.json(body)
+		} else {
+			response
+		};
+		let response = response.send().await.context("Failed to send request")?;
+		let text = response
+			.text()
+			.await
+			.context("Failed to read response text")?;
 		log::debug!("Response from {}: {}", endpoint, text);
-		let result = serde_json::from_str::<T>(&text)?;
+		let result = serde_json::from_str::<T>(&text)
+			.with_context(|| format!("Failed to parse JSON response (JSON: {})", text))?;
 		Ok(result)
 	}
 
+	// ref: https://www.scaleway.com/en/developers/api
+
 	pub async fn list_projects(&self) -> Result<Vec<ListProjectsResponseItem>> {
 		let response = self
-			.get::<ListProjectsResponse>(&format!(
-				"account/v3/projects?organization_id={}",
-				self.organization_id
-			))
+			.request::<ListProjectsResponse, _>(
+				Method::GET,
+				&format!(
+					"account/v3/projects?organization_id={}",
+					self.organization_id
+				),
+				None::<&()>,
+			)
 			.await?;
 		Ok(response.projects)
 	}
@@ -102,10 +120,11 @@ impl ScalewayApi {
 		&self,
 	) -> Result<Vec<ContainersNamespacesListResponseItem>> {
 		let response = self
-			.get::<ContainersNamespacesListResponse>(&format!(
-				"containers/v1beta1/regions/{}/namespaces",
-				self.region
-			))
+			.request::<ContainersNamespacesListResponse, _>(
+				Method::GET,
+				&format!("containers/v1beta1/regions/{}/namespaces", self.region),
+				None::<&()>,
+			)
 			.await?;
 		Ok(response.namespaces)
 	}
@@ -116,12 +135,13 @@ impl ScalewayApi {
 		project_id: &str,
 	) -> Result<ContainersNamespacesListResponseItem> {
 		let response = self
-			.post::<ContainersNamespacesListResponseItem, _>(
+			.request::<ContainersNamespacesListResponseItem, _>(
+				Method::POST,
 				&format!("containers/v1beta1/regions/{}/namespaces", self.region),
-				&serde_json::json!({
+				Some(&serde_json::json!({
 					"name": name,
 					"project_id": project_id,
-				}),
+				})),
 			)
 			.await?;
 		Ok(response)
@@ -132,12 +152,27 @@ impl ScalewayApi {
 		namespace_id: &str,
 	) -> Result<ContainersNamespacesListResponseItem> {
 		let response = self
-			.get::<ContainersNamespacesListResponseItem>(&format!(
-				"containers/v1beta1/regions/{}/namespaces/{}",
-				self.region, namespace_id
-			))
+			.request::<ContainersNamespacesListResponseItem, _>(
+				Method::GET,
+				&format!(
+					"containers/v1beta1/regions/{}/namespaces/{}",
+					self.region, namespace_id
+				),
+				None::<&()>,
+			)
 			.await?;
 		Ok(response)
+	}
+
+	pub async fn list_containers(&self) -> Result<Vec<ContainersListResponseItem>> {
+		let response = self
+			.request::<ContainersListResponse, _>(
+				Method::GET,
+				&format!("containers/v1beta1/regions/{}/containers", self.region),
+				None::<&()>,
+			)
+			.await?;
+		Ok(response.containers)
 	}
 
 	pub async fn create_container(
@@ -145,21 +180,40 @@ impl ScalewayApi {
 		body: &serde_json::Value,
 	) -> Result<ContainersListResponseItem> {
 		let response = self
-			.post::<ContainersListResponseItem, _>(
+			.request::<ContainersListResponseItem, _>(
+				Method::POST,
 				&format!("containers/v1beta1/regions/{}/containers", self.region),
-				body,
+				Some(body),
 			)
 			.await?;
 		Ok(response)
 	}
 
 	pub async fn deploy_container(&self, container_id: &str) -> Result<()> {
-		self.post::<serde_json::Value, _>(
+		self.request::<serde_json::Value, _>(
+			Method::POST,
 			&format!(
 				"containers/v1beta1/regions/{}/containers/{}/deploy",
 				self.region, container_id
 			),
-			&serde_json::json!({}),
+			Some(&serde_json::json!({})),
+		)
+		.await?;
+		Ok(())
+	}
+
+	pub async fn update_container(
+		&self,
+		container_id: &str,
+		body: &serde_json::Value,
+	) -> Result<()> {
+		self.request::<serde_json::Value, _>(
+			Method::PATCH,
+			&format!(
+				"containers/v1beta1/regions/{}/containers/{}",
+				self.region, container_id
+			),
+			Some(body),
 		)
 		.await?;
 		Ok(())

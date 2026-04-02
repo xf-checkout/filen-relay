@@ -64,7 +64,7 @@ pub(crate) struct Args {
 async fn main() -> Result<()> {
 	env_logger::init();
 	if let Err(e) = main_().await {
-		log::error!("Error: {}", e);
+		log::error!("Error: {:?}", e);
 		std::process::exit(1);
 	}
 	Ok(())
