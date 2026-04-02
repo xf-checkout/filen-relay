@@ -25,9 +25,9 @@ jobs:
         uses: taiki-e/cache-cargo-install-action@v3
         with:
           tool: dioxus-cli@0.7.3
-      - name: Run dioxus build
+      - name: Run Dioxus build
         # this one is necessary also to generate filen-relay/assets/tailwind.css, which is otherwise missed by clippy
-        run: dioxus build
+        run: dx build
         working-directory: filen-relay
       - name: Run clippy in filen-relay
         run: cargo clippy -- -D warnings
