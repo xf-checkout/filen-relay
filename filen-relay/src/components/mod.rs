@@ -13,3 +13,4 @@ pub mod input;
 pub mod label;
 #[allow(dead_code)]
 pub mod select;
+pub mod dialog;

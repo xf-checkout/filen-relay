@@ -1,9 +1,6 @@
 use crate::{
     api::ShareRootType,
-    components::{
-        label::Label,
-        select::{SelectGroupLabel, SelectOption, SelectTrigger},
-    },
+    components::dialog::{DialogContent, DialogDescription, DialogRoot, DialogTitle},
 };
 use dioxus::prelude::*;
 use dioxus_primitives::checkbox::CheckboxState;
@@ -16,7 +13,6 @@ use crate::{
         button::{Button, ButtonVariant},
         checkbox::Checkbox,
         input::Input,
-        select::{Select, SelectGroup, SelectItemIndicator, SelectList, SelectValue},
     },
 };
 
@@ -35,45 +31,14 @@ pub(crate) fn Shares() -> Element {
         fetch_shares();
     });
 
-    let mut open_as = use_signal(|| Some(Some(ServerType::Http)));
-    let open_as_options = ServerType::iter().enumerate().map(|(i, server_type)| {
-        rsx! {
-            SelectOption::<ServerType> {
-                index: i,
-                value: server_type.clone(),
-                text_value: format!("{}", server_type),
-                {format!("{}", server_type)}
-                SelectItemIndicator {}
-            }
-        }
-    });
-
     match (*shares)() {
         Some(shares) => rsx! {
-            div { class: "grid gap-2 my-4",
-                Label { html_for: "open-as-select", "Open shares as:" }
-                Select::<ServerType> {
-                    id: "open-as-select",
-                    value: open_as,
-                    on_value_change: move |new_open_as: Option<ServerType>| {
-                        open_as.set(Some(Some(new_open_as.unwrap_or_default())))
-                    },
-                    SelectTrigger { width: "12rem", SelectValue {} }
-                    SelectList {
-                        SelectGroup {
-                            SelectGroupLabel { "Server Type" }
-                            {open_as_options}
-                        }
-                    }
-                }
-            }
-            div { class: "flex flex-col gap-2",
+            div { class: "flex flex-col gap-2 mt-3",
                 CreateShareCard { on_create: move |_| fetch_shares() }
                 for share in shares.iter().rev() {
                     ShareCard {
                         key: "{share.id}",
                         share: share.clone(),
-                        open_as: open_as.cloned().unwrap().unwrap_or_default(),
                         on_remove: move |_| fetch_shares(),
                     }
                 }
@@ -86,10 +51,14 @@ pub(crate) fn Shares() -> Element {
 }
 
 #[component]
-pub(crate) fn ShareCard(share: Share, open_as: ServerType, on_remove: EventHandler<()>) -> Element {
+pub(crate) fn ShareCard(share: Share, on_remove: EventHandler<()>) -> Element {
     let open_external_icon = asset!("/assets/open-external-icon.svg");
-    let url = format!("/{}/{}", open_as.to_url_segment(), share.id.short());
+    let ellipsis_icon = asset!("/assets/ellipsis-icon.svg");
+    let url = format!("/s/{}", share.id.short());
     let mut removing = use_signal(|| false);
+    let mut open_external_dialog_open = use_signal(|| false);
+    let share_id = share.id.clone();
+
     rsx! {
         div { class: "card p-3! pl-4!",
             div { class: "flex items-center gap-2 flex-wrap",
@@ -98,8 +67,16 @@ pub(crate) fn ShareCard(share: Share, open_as: ServerType, on_remove: EventHandl
                     href: url,
                     target: "_blank",
                     "{share.root}"
-                    img { src: open_external_icon, style: "color: #ffffff" }
+                    img { src: open_external_icon }
                                 // todo: display copy icon instead when server type is not web
+                }
+                a {
+                    href: "",
+                    onclick: move |e| {
+                        e.prevent_default();
+                        open_external_dialog_open.set(true);
+                    },
+                    img { src: ellipsis_icon, class: "size-4" }
                 }
                 div { class: "flex-1" }
                 div { class: "flex items-center gap-2",
@@ -117,7 +94,7 @@ pub(crate) fn ShareCard(share: Share, open_as: ServerType, on_remove: EventHandl
                         disabled: *removing.read(),
                         onclick: move |_| {
                             removing.set(true);
-                            let share_id = share.clone().id.clone();
+                            let share_id = share_id.clone();
                             async move {
                                 match crate::api::remove_share(share_id).await {
                                     Ok(_) => on_remove.call(()),
@@ -130,6 +107,111 @@ pub(crate) fn ShareCard(share: Share, open_as: ServerType, on_remove: EventHandl
                         "Remove"
                     }
                 }
+            }
+        }
+        DialogRoot {
+            open: open_external_dialog_open(),
+            on_open_change: move |v| open_external_dialog_open.set(v),
+            DialogContent {
+                button {
+                    class: "dialog-close",
+                    r#type: "button",
+                    aria_label: "Close",
+                    tabindex: if open_external_dialog_open() { "0" } else { "-1" },
+                    onclick: move |_| open_external_dialog_open.set(false),
+                    "×"
+                }
+                OpenAsDialog { share: share.clone() }
+            }
+        }
+    }
+}
+
+#[component]
+fn OpenAsDialog(share: Share) -> Element {
+    let mut open_as = use_signal(|| None::<ServerType>);
+    let root = use_resource(move || async move {
+        let mut eval = document::eval("dioxus.send(window.location.origin);");
+        match eval.recv::<String>().await {
+            Ok(origin) => Ok(origin),
+            Err(e) => {
+                dioxus::logger::tracing::error!("Failed to get server URL: {}", e);
+                Err(e)
+            }
+        }
+    });
+    let share_url = match &*root.read() {
+        Some(Ok(url)) => Some(format!(
+            "{}/{}/{}",
+            url,
+            open_as().unwrap_or_default().to_url_segment(),
+            share.id.short()
+        )),
+        Some(Err(e)) => {
+            dioxus::logger::tracing::error!("Failed to get server URL: {}", e);
+            None
+        }
+        _ => None,
+    };
+
+    rsx! {
+        DialogTitle { "Open Share" }
+        DialogDescription {
+            "You can open this share via different protocols:"
+            div { class: "flex gap-2 mt-2 mb-4 flex-wrap justify-center sm:justify-start",
+                for (server_type_1 , server_type_2) in ServerType::iter().map(|s| (s.clone(), s.clone())) {
+                    Button {
+                        variant: if open_as() == Some(server_type_2.clone()) { ButtonVariant::Secondary } else { ButtonVariant::Outline },
+                        onclick: move |_| open_as.set(Some(server_type_2.clone())),
+                        "{server_type_1}"
+                    }
+                }
+            }
+
+            match open_as() {
+                Some(ServerType::Http) => {
+                    rsx! {
+                        "You can open this share in your web browser by visiting:\n"
+                        if let Some(share_url) = share_url {
+                            a {
+                                class: "text-blue-400 hover:underline",
+                                href: "{share_url}",
+                                target: "_blank",
+                                "{share_url}"
+                            }
+                        } else {
+                            "Loading share URL..."
+                        }
+                    }
+                }
+                Some(ServerType::Webdav) => {
+                    rsx! {
+                        "You can open this share in a WebDAV client by connecting to:\n"
+                        if let Some(share_url) = share_url {
+                            a {
+                                class: "text-blue-400 hover:underline",
+                                href: "{share_url}/",
+                                target: "_blank",
+                                "{share_url}/"
+                            }
+                        } else {
+                            "Loading share URL..."
+                        }
+                        if share.password.is_some() {
+                            div { class: "mt-2",
+                                "This share needs a password to access. Use Basic authentication with any username (or empty) and the share password."
+                                // todo: add option to show the password
+                            }
+                        }
+                    }
+                }
+                Some(ServerType::S3) | Some(ServerType::Ftp) | Some(ServerType::Sftp) => {
+                    rsx! {
+                        div { class: "text-yellow-400", "This protocol is not supported yet. Please check back later!" }
+                    }
+                    // todo: check that these protocols work properly and add instructions
+                }
+                _ => rsx! {},
             }
         }
     }
