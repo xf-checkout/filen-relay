@@ -178,8 +178,11 @@ impl ServerManager {
                 "Authorization",
                 format!(
                     "Basic {}",
-                    get_encoded_rclone_remote_config_for_share(&share)
-                        .context("Failed to contruct rclone remote config for share")?
+                    BASE64_STANDARD.encode(format!(
+                        "{}:",
+                        get_encoded_rclone_remote_config_for_share(&share)
+                            .context("Failed to contruct rclone remote config for share")?
+                    ))
                 )
                 .parse()
                 .unwrap(),

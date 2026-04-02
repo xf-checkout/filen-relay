@@ -22,11 +22,9 @@ pub(crate) fn rclone_auth_proxy_main() -> Result<()> {
     std::io::stdin().read_to_string(&mut input).ok().unwrap();
     let rclone_auth_proxy_input: RcloneAuthProxyInput = serde_json::from_str(&input)
         .context(format!("Failed to deserialize JSON string: {}", input))?;
-    let share_id = rclone_auth_proxy_input.user;
-    log::debug!("Request for share id {}", share_id);
 
     // decode rclone remote config for share
-    let rclone_remote_config = decode_rclone_remote_config(&share_id)?;
+    let rclone_remote_config = decode_rclone_remote_config(&rclone_auth_proxy_input.user)?;
     log::debug!("Rclone remote config for: {}", rclone_remote_config);
 
     println!("{}", rclone_remote_config);
