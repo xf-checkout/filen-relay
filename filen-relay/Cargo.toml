@@ -1,6 +1,6 @@
 [package]
 name = "filen-relay"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["JupiterPi <hello@jupiterpi.de>"]
 edition = "2021"
 
