@@ -6,6 +6,7 @@ use std::{
 
 pub(crate) static ADMIN_EMAIL: OnceLock<String> = OnceLock::new();
 
+use base64::{prelude::BASE64_STANDARD, Engine};
 use dioxus::{
 	fullstack::extract::{FromRequestParts, Request},
 	prelude::*,
@@ -57,7 +58,8 @@ pub(crate) struct SessionToken(String);
 
 impl SessionToken {
 	fn new() -> Self {
-		Self(uuid::Uuid::new_v4().to_string())
+		let session_token: [u8; 32] = rand::random();
+		Self(BASE64_STANDARD.encode(session_token))
 	}
 }
 
