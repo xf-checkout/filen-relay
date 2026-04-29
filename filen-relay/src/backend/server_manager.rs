@@ -85,6 +85,8 @@ impl ServerManager {
 				script_file.path().to_str().unwrap(),
 				"--max-header-bytes",
 				"16384", // arbitrarily larger than default 4096
+				"--dir-cache-time",
+				"1s", // so changes made to the Filen Drive are reflected immediately
 			];
 			let base_url = if server_type == ServerType::Webdav {
 				args.push("--baseurl");
